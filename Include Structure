@@ -1,0 +1,5 @@
+  DATA: BEGIN OF ltxhead OCCURS 25.
+          INCLUDE STRUCTURE thead.
+          DATA:   txt_ref LIKE eqkt-kzltx.
+  DATA:   property TYPE c.                    "No Changes to Existing Long Text
+  DATA: END OF ltxhead.

@@ -1,0 +1,246 @@
+*&---------------------------------------------------------------------*
+*& Report ZPP_MES_RFC_ERROR_LOG
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zpp_mes_rfc_error_log.
+TYPES : BEGIN OF ty_log_tp , "Transfer Posting
+          status    TYPE char4,
+          cdate     TYPE zmes_log_tp-cdate,
+          matnr     TYPE zmes_log_tp-matnr,
+          plant     TYPE zmes_log_tp-plant,
+          sloc      TYPE zmes_log_tp-sloc,
+          old_batch TYPE zmes_log_tp-old_batch,
+          new_batch TYPE zmes_log_tp-new_batch,
+          message   TYPE zmes_log_tp-message,
+        END OF ty_log_tp.
+
+
+TYPES : BEGIN OF ty_log_me_rec, "Month End Reconciliation
+          status       TYPE char4,
+          cdate        TYPE zmes_log_me_rec-cdate,
+          matnr        TYPE zmes_log_me_rec-matnr,
+          plant        TYPE zmes_log_me_rec-plant,
+          sloc         TYPE zmes_log_me_rec-sloc,
+          batch        TYPE zmes_log_me_rec-batch,
+          physical_qty TYPE zmes_log_me_rec-physical_qty,
+          uom          TYPE zmes_log_me_rec-uom,
+          y_shop_orde  TYPE zmes_log_me_rec-y_shop_orde,
+          c_shop_order TYPE zmes_log_me_rec-c_shop_order,
+          message      TYPE zmes_log_me_rec-message,
+        END OF ty_log_me_rec.
+
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+
+PARAMETERS : p_tp TYPE char1 RADIOBUTTON GROUP g1.
+PARAMETERS : p_mer TYPE char1 RADIOBUTTON GROUP g1.
+*PARAMETERS : p_ctt TYPE char1 RADIOBUTTON GROUP g1.
+
+SELECT-OPTIONS s_date FOR sy-datum.
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+CLASS lcl_handle_events DEFINITION DEFERRED.
+
+
+DATA:
+  it_mat_dtls   TYPE zme_tt_reconciliation_dtls,
+  ls_mat_dtls   TYPE zme_reconciliation_dtls,
+  gr_data       TYPE REF TO data,
+  gt_log_tp     TYPE STANDARD TABLE OF ty_log_tp,
+  gt_mat_dtls   TYPE zme_tt_reconciliation_dtls,
+  gt_log_me_rec TYPE STANDARD TABLE OF ty_log_me_rec,
+  gs_mat_dtls   TYPE zme_reconciliation_dtls,
+  gr_alv        TYPE REF TO cl_salv_table.
+
+DATA:
+  lr_event_handler TYPE REF TO lcl_handle_events,
+  lr_events        TYPE REF TO cl_salv_events_table,
+  lx_msg           TYPE REF TO cx_salv_msg.
+
+
+FIELD-SYMBOLS:
+    <ft_table> TYPE ANY TABLE.
+
+CLASS lcl_handle_events DEFINITION .
+  PUBLIC SECTION.
+    METHODS:
+      on_user_command FOR EVENT added_function OF cl_salv_events
+        IMPORTING e_salv_function.
+
+ENDCLASS.
+
+CLASS lcl_show_log DEFINITION.
+  PUBLIC SECTION.
+    METHODS:
+      get_data,
+      generate_output.
+ENDCLASS.
+
+
+START-OF-SELECTION.
+
+  DATA(lr_show_log) = NEW lcl_show_log( ).
+
+  lr_show_log->get_data( ).
+
+  lr_show_log->generate_output( ).
+
+
+
+
+CLASS lcl_show_log IMPLEMENTATION.
+  METHOD get_data.
+    IF p_tp = abap_true.
+
+      SELECT '@0A@' AS status , cdate , matnr , plant ,sloc ,
+            old_batch ,new_batch, message
+            FROM zmes_log_tp INTO TABLE @gt_log_tp
+             WHERE cdate IN @s_date[].
+
+      CREATE DATA gr_data LIKE gt_log_tp.
+      ASSIGN gr_data->* TO <ft_table>.
+
+      <ft_table> = gt_log_tp.
+
+
+    ELSEIF p_mer = abap_true.
+
+      SELECT '@0A@' AS status , cdate , matnr , plant , sloc ,batch , physical_qty , uom ,
+             y_shop_orde , c_shop_order , message FROM zmes_log_me_rec
+             INTO TABLE @gt_log_me_rec
+                WHERE cdate IN @s_date[].
+
+      CREATE DATA gr_data LIKE gt_log_me_rec.
+      ASSIGN gr_data->* TO <ft_table>.
+
+      <ft_table> = gt_log_me_rec.
+
+*    ELSEIF p_ctt = abap_true.
+
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD generate_output.
+    TRY.
+        cl_salv_table=>factory(
+          IMPORTING
+            r_salv_table = gr_alv
+          CHANGING
+            t_table      = <ft_table> ).
+      CATCH cx_salv_msg INTO lx_msg.
+    ENDTRY.
+
+
+    gr_alv->set_screen_status(
+       pfstatus      =  'ALV'
+       report        =  'ZPP_MES_RFC_ERROR_LOG'
+       set_functions = gr_alv->c_functions_all ).
+
+    DATA: lr_display TYPE REF TO cl_salv_display_settings.
+
+*   get display object
+    lr_display = gr_alv->get_display_settings( ).
+
+*   set ZEBRA pattern
+    lr_display->set_striped_pattern( 'X' ).
+
+*...Get all the Columns
+    DATA: lr_cols TYPE REF TO cl_salv_columns.
+    lr_cols = gr_alv->get_columns( ).
+
+* set the Column optimization
+    lr_cols->set_optimize( 'X' ).
+
+
+    DATA: lr_sel TYPE REF TO cl_salv_selections.
+
+    lr_sel = gr_alv->get_selections( ).
+
+    lr_sel->set_selection_mode( if_salv_c_selection_mode=>row_column ).
+
+
+    lr_events = gr_alv->get_event( ).
+
+    CREATE OBJECT lr_event_handler.
+    SET HANDLER lr_event_handler->on_user_command FOR lr_events.
+
+    "Display ALV
+    gr_alv->display( ).
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+CLASS lcl_handle_events IMPLEMENTATION.
+  METHOD on_user_command.
+    DATA lt_rows TYPE salv_t_row.
+    DATA ls_rows TYPE i.
+
+    CASE e_salv_function.
+      WHEN 'REPROC'.
+        lt_rows = gr_alv->get_selections( )->get_selected_rows( ).
+
+        IF p_tp = abap_true.
+          LOOP AT lt_rows INTO ls_rows.
+            READ TABLE gt_log_tp ASSIGNING FIELD-SYMBOL(<fs_log_tp>) INDEX ls_rows.
+            IF NOT ( sy-subrc = 0 AND <fs_log_tp>-status = icon_red_light ).
+              CONTINUE.
+            ENDIF.
+
+            zcl_mes_rfc=>transfer_posting( EXPORTING iv_matnr     = <fs_log_tp>-matnr                 " Material Number
+                                                     iv_plant     = <fs_log_tp>-plant                  " Plant
+                                                     iv_sloc      = <fs_log_tp>-sloc                 " Storage location
+                                                     iv_old_batch = <fs_log_tp>-old_batch                 " Batch Number
+                                                     iv_new_batch = <fs_log_tp>-new_batch                 " Batch Number
+                                           IMPORTING et_return    = DATA(et_return) ). " Return table
+
+            READ TABLE et_return INTO DATA(ls_return) WITH KEY type = 'E'.
+            IF sy-subrc = 0.
+              <fs_log_tp>-message = ls_return-message.
+            ELSE.
+              DELETE zmes_log_tp FROM <fs_log_tp>.
+              <fs_log_tp>-status = icon_green_light.
+            ENDIF.
+          ENDLOOP.
+
+          <ft_table> = CORRESPONDING #( gt_log_tp ).
+
+        ELSEIF p_mer = abap_true.
+
+          LOOP AT lt_rows INTO ls_rows.
+            READ TABLE gt_log_me_rec ASSIGNING FIELD-SYMBOL(<fs_log_me_rec>) INDEX ls_rows.
+            IF sy-subrc = 0 AND <fs_log_me_rec>-status = icon_red_light.
+
+              ls_mat_dtls = CORRESPONDING #( <fs_log_me_rec> ).
+              APPEND ls_mat_dtls TO it_mat_dtls.
+
+              zcl_mes_rfc=>month_end_reconciliation( EXPORTING it_mat_dtls      = it_mat_dtls                  " Table type for ZME_RECONCILIATION_DTLS
+                                                     IMPORTING et_detail_return = et_return ). " Return table
+
+              READ TABLE et_return INTO ls_return WITH KEY type = 'E'.
+              IF sy-subrc = 0.
+                <fs_log_me_rec>-message = ls_return-message.
+              ELSE.
+                DELETE FROM zmes_log_me_rec WHERE     cdate = <fs_log_me_rec>-cdate
+                                                  AND matnr = <fs_log_me_rec>-matnr
+                                                  AND plant = <fs_log_me_rec>-plant
+                                                  AND sloc  = <fs_log_me_rec>-sloc
+                                                  AND batch = <fs_log_me_rec>-batch.
+                <fs_log_me_rec>-status = icon_green_light.
+
+              ENDIF.
+            ENDIF.
+            CLEAR ls_mat_dtls.
+          ENDLOOP.
+          <ft_table> = CORRESPONDING #( gt_log_me_rec ).
+        ENDIF.
+
+        gr_alv->refresh( ).
+        cl_gui_cfw=>flush( ).
+
+    ENDCASE.
+  ENDMETHOD.
+
+ENDCLASS.

@@ -1,0 +1,880 @@
+class ZCL_MESSAGE_SERVICES definition
+  public
+  final
+  create public .
+
+public section.
+
+  class-data SV_MSG_DUMMY type STRING .
+
+  class-methods CONTAINS_ERROR
+    importing
+      !IT_MESSAGES type BAPIRET2_T
+    returning
+      value(RV_RESULT) type ABAP_BOOL .
+  class-methods CONVERT_BAL_S_MSG_TO_BAPIRET
+    importing
+      !IS_BAL_S_MSG type BAL_S_MSG
+    returning
+      value(RS_BAPIRET2) type BAPIRET2 .
+  class-methods CONVERT_BAPIRET1_TO_BAPIRET2
+    importing
+      !IS_BAPIRETURN type BAPIRETURN1
+    returning
+      value(RS_BAPIRET2) type BAPIRET2 .
+  class-methods CONVERT_BAPIRET2_TO_T001KEY
+    importing
+      !IS_RETURN type BAPIRET2
+    returning
+      value(RS_T100KEY) type SCX_T100KEY .
+  class-methods CONVERT_BAPIRET2_TO_T100MSG
+    importing
+      !IS_RETURN type BAPIRET2
+    returning
+      value(RS_T100MSG) type SWF_T100MS .
+  class-methods CONVERT_BAPIRETURN_TO_BAPIRET2
+    importing
+      !IT_BAPIRETURN type ZBAPIRETURN_T
+    returning
+      value(RT_BAPIRET2) type BAPIRET2_T .
+  class-methods CONVERT_EXCEPTION_TO_BAPIRET
+    importing
+      !IO_EXCEPTION type ref to CX_ROOT
+    returning
+      value(RS_MESSAGE) type BAPIRET2 .
+  class-methods CONVERT_MESSAGE_TO_BAPIRET
+    importing
+      !IV_MSGTY type SYMSGTY default SY-MSGTY
+      !IV_MSGID type SYMSGID default SY-MSGID
+      !IV_MSGNO type SYMSGNO default SY-MSGNO
+      !IV_MSGV1 type SYMSGV default SY-MSGV1
+      !IV_MSGV2 type SYMSGV default SY-MSGV2
+      !IV_MSGV3 type SYMSGV default SY-MSGV3
+      !IV_MSGV4 type SYMSGV default SY-MSGV4
+      !IV_PARAMETER type BAPI_PARAM optional
+      !IV_ROW type BAPI_LINE optional
+      !IV_FIELD type BAPI_FLD optional
+    returning
+      value(RS_RETURN) type BAPIRET2 .
+  class-methods CONVERT_MESSAGE_TO_BAPIRET_TAB
+    importing
+      !IV_MSGTY type SYMSGTY default SY-MSGTY
+      !IV_MSGID type SYMSGID default SY-MSGID
+      !IV_MSGNO type SYMSGNO default SY-MSGNO
+      !IV_MSGV1 type SYMSGV default SY-MSGV1
+      !IV_MSGV2 type SYMSGV default SY-MSGV2
+      !IV_MSGV3 type SYMSGV default SY-MSGV3
+      !IV_MSGV4 type SYMSGV default SY-MSGV4
+      !IV_PARAMETER type BAPI_PARAM optional
+      !IV_ROW type BAPI_LINE optional
+      !IV_FIELD type BAPI_FLD optional
+    returning
+      value(RT_RETURN) type BAPIRET2_T .
+  class-methods CONVERT_MESSAGE_TO_T100KEY
+    importing
+      !IV_MSGID type SYMSGID default SY-MSGID
+      !IV_MSGNO type SYMSGNO default SY-MSGNO
+      !IV_MSGV1 type SYMSGV default SY-MSGV1
+      !IV_MSGV2 type SYMSGV default SY-MSGV2
+      !IV_MSGV3 type SYMSGV default SY-MSGV3
+      !IV_MSGV4 type SYMSGV default SY-MSGV4
+    returning
+      value(RS_T100KEY) type SCX_T100KEY .
+  class-methods GET_ERROR_FROM_BAPIRET_TAB
+    importing
+      !IT_BAPI_RETURN type BAPIRET2_T
+    returning
+      value(RS_RETURN) type BAPIRET2 .
+  class-methods ISSUE_ERROR_FROM_BAPIRET_TAB
+    importing
+      !IT_MESSAGES type BAPIRET2_T .
+  class-methods MAP_BAPIRET1_TO_BAPIRET2_TAB
+    importing
+      !IS_BAPIRET1 type BAPIRETURN1
+    returning
+      value(RT_BAPIRET2) type BAPIRET2_TAB .
+  class-methods SHOW_AS_LOG
+    importing
+      !IT_MESSAGES type BAPIRET2_T
+      !IV_PROFILE_OPTION type ZAPPLOG_PROFILE_OPTION_DE default ZCL_APP_LOG_DISPLAY_PROFILE=>GC_PROFILE_POPUP
+      !IV_TITLE type BALTITLE optional .
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS ZCL_MESSAGE_SERVICES IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>CONTAINS_ERROR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_MESSAGES                    TYPE        BAPIRET2_T
+* | [<-()] RV_RESULT                      TYPE        ABAP_BOOL
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD contains_error.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Common Method used to check if there are any error messages in the *
+*   message table                                                      *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  LOOP AT it_messages TRANSPORTING NO FIELDS
+                      WHERE type CA zif_message_type_c=>gc_anyerror.
+    EXIT.
+  ENDLOOP.
+
+  IF sy-subrc NE 0.
+    rv_result = abap_false.
+  ELSE.
+    rv_result = abap_true.
+  ENDIF.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>CONVERT_BAL_S_MSG_TO_BAPIRET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_BAL_S_MSG                   TYPE        BAL_S_MSG
+* | [<-()] RS_BAPIRET2                    TYPE        BAPIRET2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_bal_s_msg_to_bapiret.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   This method converts structure BAL_S_MSG to BAPIRET2.              *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  rs_bapiret2-type       = is_bal_s_msg-msgty.
+  rs_bapiret2-id         = is_bal_s_msg-msgid.
+  rs_bapiret2-number     = is_bal_s_msg-msgno.
+  rs_bapiret2-message_v1 = is_bal_s_msg-msgv1.
+  rs_bapiret2-message_v2 = is_bal_s_msg-msgv2.
+  rs_bapiret2-message_v3 = is_bal_s_msg-msgv3.
+  rs_bapiret2-message_v4 = is_bal_s_msg-msgv4.
+
+  MESSAGE ID is_bal_s_msg-msgid
+     TYPE is_bal_s_msg-msgty
+   NUMBER is_bal_s_msg-msgno
+     WITH is_bal_s_msg-msgv1  is_bal_s_msg-msgv2  is_bal_s_msg-msgv3  is_bal_s_msg-msgv4
+     INTO rs_bapiret2-message.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>CONVERT_BAPIRET1_TO_BAPIRET2
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_BAPIRETURN                  TYPE        BAPIRETURN1
+* | [<-()] RS_BAPIRET2                    TYPE        BAPIRET2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_bapiret1_to_bapiret2.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Common Method used to build BAPI return structure from structure   *
+*   type BAPIRET1.                                                     *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  CALL FUNCTION 'BALW_RET1_TO_RET2'
+    EXPORTING
+      return_in = is_bapireturn
+    IMPORTING
+      return_ou = rs_bapiret2.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>CONVERT_BAPIRET2_TO_T001KEY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_RETURN                      TYPE        BAPIRET2
+* | [<-()] RS_T100KEY                     TYPE        SCX_T100KEY
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_bapiret2_to_t001key.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Used to convert BAPIRET2 to T100KEY.                               *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  rs_t100key-msgid = is_return-id.
+  rs_t100key-msgno = is_return-number.
+  rs_t100key-attr1 = is_return-message_v1.
+  rs_t100key-attr2 = is_return-message_v2.
+  rs_t100key-attr3 = is_return-message_v3.
+  rs_t100key-attr4 = is_return-message_v4.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>CONVERT_BAPIRET2_TO_T100MSG
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_RETURN                      TYPE        BAPIRET2
+* | [<-()] RS_T100MSG                     TYPE        SWF_T100MS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_bapiret2_to_t100msg.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Common Method used to build SWF_T100MS structure                   *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  rs_t100msg-msgid = is_return-id.
+  rs_t100msg-msgno = is_return-number.
+  rs_t100msg-msgty = is_return-type.
+  rs_t100msg-msgv1 = is_return-message_v1.
+  rs_t100msg-msgv2 = is_return-message_v2.
+  rs_t100msg-msgv3 = is_return-message_v3.
+  rs_t100msg-msgv4 = is_return-message_v4.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>CONVERT_BAPIRETURN_TO_BAPIRET2
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_BAPIRETURN                  TYPE        ZBAPIRETURN_T
+* | [<-()] RT_BAPIRET2                    TYPE        BAPIRET2_T
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_bapireturn_to_bapiret2.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Common Method used to build BAPI return table.                     *
+*   This method will convert the BAPIRETURN message table to BAPIRET2  *
+*   message table.                                                     *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  DATA: ls_bapiret2 TYPE bapiret2.
+
+  LOOP AT it_bapireturn ASSIGNING FIELD-SYMBOL(<ls_bapireturn>).
+
+    CALL FUNCTION 'BALW_RETURN_TO_RET2'
+      EXPORTING
+        return_in = <ls_bapireturn>
+      IMPORTING
+        return_ou = ls_bapiret2.
+
+    APPEND ls_bapiret2 TO rt_bapiret2.
+
+  ENDLOOP.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>CONVERT_EXCEPTION_TO_BAPIRET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IO_EXCEPTION                   TYPE REF TO CX_ROOT
+* | [<-()] RS_MESSAGE                     TYPE        BAPIRET2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_exception_to_bapiret.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*  This method gets the message from an exception and fills the        *
+*  BAPIRET2 structure.                                                 *
+*  Adapted from CX_BS_SOA_EXCEPTION=>GET_DEFAULT_MESSAGE               *
+*  & ZCL_MESSAGES=>GET_EXCEPTION_MESSAGE                               *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  DATA: lo_t100_message TYPE REF TO if_t100_message.
+
+  TRY.
+      "Get T100 message from exception
+      lo_t100_message ?= io_exception.
+      DATA(ls_t100) = lo_t100_message->t100key.
+
+      ASSIGN io_exception->(ls_t100-attr1) TO FIELD-SYMBOL(<lv_message_v1>).
+      IF <lv_message_v1> IS NOT ASSIGNED.
+        ASSIGN space TO <lv_message_v1>.
+      ENDIF.
+      ASSIGN io_exception->(ls_t100-attr2) TO FIELD-SYMBOL(<lv_message_v2>).
+      IF <lv_message_v2> IS NOT ASSIGNED.
+        ASSIGN space TO <lv_message_v2>.
+      ENDIF.
+      ASSIGN io_exception->(ls_t100-attr3) TO FIELD-SYMBOL(<lv_message_v3>).
+      IF <lv_message_v3> IS NOT ASSIGNED.
+        ASSIGN space TO <lv_message_v3>.
+      ENDIF.
+      ASSIGN io_exception->(ls_t100-attr4) TO FIELD-SYMBOL(<lv_message_v4>).
+      IF <lv_message_v4> IS NOT ASSIGNED.
+        ASSIGN space TO <lv_message_v4>.
+      ENDIF.
+
+      MESSAGE ID ls_t100-msgid TYPE zif_message_type_c=>gc_error
+        NUMBER ls_t100-msgno
+        WITH   <lv_message_v1> <lv_message_v2> <lv_message_v3> <lv_message_v4>
+        INTO   sv_msg_dummy.
+
+    CATCH cx_sy_move_cast_error.
+
+      "If exception does not have a IF_T100_MESSAGE interface, get message text
+      DATA(lv_text) = io_exception->get_text( ).
+
+      "Split text into 4 message variables
+      IF strlen( lv_text ) LE 50.
+        ls_t100-attr1 = lv_text.
+      ELSE.
+        ls_t100-attr1 = lv_text(50).
+        lv_text = lv_text+50.
+
+        IF strlen( lv_text ) LE 50.
+          ls_t100-attr2 = lv_text.
+        ELSE.
+          ls_t100-attr2 = lv_text(50).
+          lv_text = lv_text+50.
+
+          IF strlen( lv_text ) LE 50.
+            ls_t100-attr3 = lv_text.
+          ELSE.
+            ls_t100-attr3 = lv_text(50).
+            lv_text = lv_text+50.
+
+            IF strlen( lv_text ) LE 50.
+              ls_t100-attr4 = lv_text.
+            ELSE.
+              ls_t100-attr4 = lv_text(50).
+              lv_text = lv_text+50.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+
+      MESSAGE e000(z_crossapp)
+        WITH ls_t100-attr1 ls_t100-attr2 ls_t100-attr3 ls_t100-attr4
+        INTO sv_msg_dummy.
+  ENDTRY.
+
+  "Return message
+  rs_message = convert_message_to_bapiret( ).
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>CONVERT_MESSAGE_TO_BAPIRET
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_MSGTY                       TYPE        SYMSGTY (default =SY-MSGTY)
+* | [--->] IV_MSGID                       TYPE        SYMSGID (default =SY-MSGID)
+* | [--->] IV_MSGNO                       TYPE        SYMSGNO (default =SY-MSGNO)
+* | [--->] IV_MSGV1                       TYPE        SYMSGV (default =SY-MSGV1)
+* | [--->] IV_MSGV2                       TYPE        SYMSGV (default =SY-MSGV2)
+* | [--->] IV_MSGV3                       TYPE        SYMSGV (default =SY-MSGV3)
+* | [--->] IV_MSGV4                       TYPE        SYMSGV (default =SY-MSGV4)
+* | [--->] IV_PARAMETER                   TYPE        BAPI_PARAM(optional)
+* | [--->] IV_ROW                         TYPE        BAPI_LINE(optional)
+* | [--->] IV_FIELD                       TYPE        BAPI_FLD(optional)
+* | [<-()] RS_RETURN                      TYPE        BAPIRET2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_message_to_bapiret.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Common Method used to build BAPI return structure.  When the       *
+*   message variables are not passed in using the import parameter, it *
+*   will use the system variables as default.                          *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  CALL FUNCTION 'BALW_BAPIRETURN_GET2'
+    EXPORTING
+      type      = iv_msgty
+      cl        = iv_msgid
+      number    = iv_msgno
+      par1      = iv_msgv1
+      par2      = iv_msgv2
+      par3      = iv_msgv3
+      par4      = iv_msgv4
+      parameter = iv_parameter
+      row       = iv_row
+      field     = iv_field
+    IMPORTING
+      return    = rs_return.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>CONVERT_MESSAGE_TO_BAPIRET_TAB
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_MSGTY                       TYPE        SYMSGTY (default =SY-MSGTY)
+* | [--->] IV_MSGID                       TYPE        SYMSGID (default =SY-MSGID)
+* | [--->] IV_MSGNO                       TYPE        SYMSGNO (default =SY-MSGNO)
+* | [--->] IV_MSGV1                       TYPE        SYMSGV (default =SY-MSGV1)
+* | [--->] IV_MSGV2                       TYPE        SYMSGV (default =SY-MSGV2)
+* | [--->] IV_MSGV3                       TYPE        SYMSGV (default =SY-MSGV3)
+* | [--->] IV_MSGV4                       TYPE        SYMSGV (default =SY-MSGV4)
+* | [--->] IV_PARAMETER                   TYPE        BAPI_PARAM(optional)
+* | [--->] IV_ROW                         TYPE        BAPI_LINE(optional)
+* | [--->] IV_FIELD                       TYPE        BAPI_FLD(optional)
+* | [<-()] RT_RETURN                      TYPE        BAPIRET2_T
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_message_to_bapiret_tab.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Common Method used to build BAPI return table.  When the message   *
+*   variables are not passed in using the import parameter, the will   *
+*   use the system variables as default                                *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  APPEND zcl_message_services=>convert_message_to_bapiret( iv_msgty     = iv_msgty
+                                                           iv_msgid     = iv_msgid
+                                                           iv_msgno     = iv_msgno
+                                                           iv_msgv1     = iv_msgv1
+                                                           iv_msgv2     = iv_msgv2
+                                                           iv_msgv3     = iv_msgv3
+                                                           iv_msgv4     = iv_msgv4
+                                                           iv_parameter = iv_parameter
+                                                           iv_row       = iv_row
+                                                           iv_field     = iv_field ) TO rt_return.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>CONVERT_MESSAGE_TO_T100KEY
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_MSGID                       TYPE        SYMSGID (default =SY-MSGID)
+* | [--->] IV_MSGNO                       TYPE        SYMSGNO (default =SY-MSGNO)
+* | [--->] IV_MSGV1                       TYPE        SYMSGV (default =SY-MSGV1)
+* | [--->] IV_MSGV2                       TYPE        SYMSGV (default =SY-MSGV2)
+* | [--->] IV_MSGV3                       TYPE        SYMSGV (default =SY-MSGV3)
+* | [--->] IV_MSGV4                       TYPE        SYMSGV (default =SY-MSGV4)
+* | [<-()] RS_T100KEY                     TYPE        SCX_T100KEY
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD convert_message_to_t100key.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Used to convert Message to T100KEY.                                *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  rs_t100key-msgid = iv_msgid.
+  rs_t100key-msgno = iv_msgno.
+  rs_t100key-attr1 = iv_msgv1.
+  rs_t100key-attr2 = iv_msgv2.
+  rs_t100key-attr3 = iv_msgv3.
+  rs_t100key-attr4 = iv_msgv4.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>GET_ERROR_FROM_BAPIRET_TAB
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_BAPI_RETURN                 TYPE        BAPIRET2_T
+* | [<-()] RS_RETURN                      TYPE        BAPIRET2
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD get_error_from_bapiret_tab.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Common Method used to return the first entry in the BAPI return    *
+*   table that contains an error.                                      *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  CLEAR rs_return.
+
+  LOOP AT it_bapi_return INTO rs_return WHERE type CA zif_message_type_c=>gc_anyerror.
+    EXIT.
+  ENDLOOP.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>ISSUE_ERROR_FROM_BAPIRET_TAB
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_MESSAGES                    TYPE        BAPIRET2_T
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD issue_error_from_bapiret_tab.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Common Method used to issue the first error message from the  BAPI *
+*   return table                                                       *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  LOOP AT it_messages ASSIGNING FIELD-SYMBOL(<ls_bapiret>)
+                      WHERE type CA zif_message_type_c=>gc_anyerror.
+
+    MESSAGE ID <ls_bapiret>-id TYPE <ls_bapiret>-type NUMBER <ls_bapiret>-number
+    WITH <ls_bapiret>-message_v1 <ls_bapiret>-message_v2 <ls_bapiret>-message_v3 <ls_bapiret>-message_v4.
+
+  ENDLOOP.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>MAP_BAPIRET1_TO_BAPIRET2_TAB
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IS_BAPIRET1                    TYPE        BAPIRETURN1
+* | [<-()] RT_BAPIRET2                    TYPE        BAPIRET2_TAB
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD map_bapiret1_to_bapiret2_tab.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   Map Bapi Return 1 message to Bapi Return 2 table                   *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  CHECK is_bapiret1 IS NOT INITIAL.
+
+  APPEND convert_bapiret1_to_bapiret2( is_bapiret1 ) TO rt_bapiret2.
+
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_MESSAGE_SERVICES=>SHOW_AS_LOG
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_MESSAGES                    TYPE        BAPIRET2_T
+* | [--->] IV_PROFILE_OPTION              TYPE        ZAPPLOG_PROFILE_OPTION_DE (default =ZCL_APP_LOG_DISPLAY_PROFILE=>GC_PROFILE_POPUP)
+* | [--->] IV_TITLE                       TYPE        BALTITLE(optional)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD show_as_log.
+*----------------------------------------------------------------------*
+* ADO Feature ID : Base Build                                          *
+*----------------------------------------------------------------------*
+* Description :                                                        *
+*   This method allows caller to display the current message list of   *
+*   the class as an application log.                                   *
+*                                                                      *
+*   The IV_PROFILE_OPTION parameter allows the caller to influence the *
+*   display of the log, e.g. as a standard log, single log, in a popup *
+*   screen or with no tree display.                                    *
+*                                                                      *
+* Context :                                                            *
+*   N/A                                                                *
+*                                                                      *
+* Assumptions :                                                        *
+*   N/A                                                                *
+*                                                                      *
+* Design Decisions :                                                   *
+*   N/A                                                                *
+*                                                                      *
+* Related Developments :                                               *
+*   N/A                                                                *
+*                                                                      *
+*----------------------------------------------------------------------*
+* CHANGE HISTORY                                                       *
+* Date       Reference#   Author                                       *
+* ========== ==========   ============================================ *
+* 15.01.2025 Base Build   VILLARO1                                     *
+* Description :                                                        *
+*   Initial development                                                *
+*----------------------------------------------------------------------*
+
+  DATA:
+    lo_log TYPE REF TO zcl_app_log.
+
+  TRY.
+      "Create application log instance
+      CALL METHOD zcl_app_log=>create
+        EXPORTING
+          iv_object    = 'PTU'
+          iv_extnumber = ''
+        RECEIVING
+          ro_instance  = lo_log.
+
+      "Add messages to the application log
+      CALL METHOD lo_log->add_messages
+        EXPORTING
+          it_messages = it_messages.
+
+      "Set Title
+      IF iv_title IS NOT INITIAL.
+        lo_log->get_display_profile( iv_profile_option )->set_title( iv_title ).
+      ENDIF.
+
+      "Display the application log
+      CALL METHOD lo_log->display( iv_profile_option = iv_profile_option ).
+
+    CATCH zcx_app_log INTO DATA(lo_x_app_log).
+      "Issue application log error to screen
+      lo_x_app_log->issue_error_to_screen( ).
+
+  ENDTRY.
+
+ENDMETHOD.
+ENDCLASS.

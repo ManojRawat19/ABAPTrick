@@ -1,0 +1,263 @@
+  METHOD zone_w_oil_sale BY DATABASE FUNCTION FOR HDB LANGUAGE SQLSCRIPT
+                    OPTIONS READ-ONLY USING ausp vbrk vbrp marm zo2c_target_val ififyearperiod.
+
+    declare v1 varchar(10);
+    declare v2 varchar(10);
+    declare v3 varchar(10);
+    declare v4 varchar(10);
+    declare v5 varchar(10);
+    declare mth_first_date varchar(10 );
+    declare mth_last_date varchar( 10) ;
+    declare mth_first_date1 date;
+    declare mth_last_date1 date ;
+    declare pymth_first_date varchar(8) ;
+    declare pymth_last_date varchar(8) ;
+    declare py_mth_first_date varchar(8) ;
+    declare py_last_date varchar(8) ;
+    declare cal int;
+    declare curr_fiscal_year varchar( 4) ;
+    declare pre_fiscal_year varchar( 4) ;
+    declare cy_first_date varchar(8);
+    declare py_first_date varchar(8);
+    declare tot_curr_year_sale decimal;
+    declare zone varchar(2);
+    declare fiscal_preiod numeric;
+
+
+    IF p_date > session_context('SAP_SYSTEM_DATE') then
+       p_date = session_context('SAP_SYSTEM_DATE');
+    else
+*---- Do nothing
+    end if;
+
+
+*-- Current Month First Date
+  SELECT add_months(next_day(last_day(p_date)),-1) INTO mth_first_date1 FROM dummy;
+*   SELECT add_months(last_day(p_date)) INTO mth_first_date1 FROM dummy;
+*--- Current Month Last Date
+ SELECT last_day(p_date) INTO mth_last_date1 FROM dummy;
+
+*-- Get Current fiscal year/ Period
+  SELECT DISTINCT fiscalyear , fiscalperiod INTO curr_fiscal_year,fiscal_preiod FROM ififyearperiod
+      WHERE fiscalyearvariant = 'V3' AND  fiscalperiodstartdate = mth_first_date1 AND fiscalperiodenddate =  mth_last_date1;
+
+    pre_fiscal_year = curr_fiscal_year - 1;
+
+    cy_first_date = concat(  curr_fiscal_year,'0401' );
+    py_first_date = concat(  pre_fiscal_year,'0401' );
+
+    v1 = cast(mth_first_date1 as varchar);
+    v2 = substring(v1,1,4);
+    v3 = substring(v1,6,2);
+    v4 = substring(v1,9,2);
+    v5 = concat( v2,v3 );
+    mth_first_date = concat( v5,v4);
+
+    v1 = cast(mth_last_date1 as varchar);
+    v2 = substring(v1,1,4);
+    v3 = substring(v1,6,2);
+    v4 = substring(v1,9,2);
+    v5 = concat( v2,v3 );
+    mth_last_date = concat( v5,v4);
+
+
+    v1 = cast(mth_first_date as varchar);
+    v2 = substring(v1,1,4) - 1 ;
+    v3 = substring(v1,6,2);
+    v4 = substring(v1,9,2);
+    v5 = concat( v2,v3 );
+
+    pymth_first_date = concat( v5,v4);
+
+    v1 = cast(p_date as varchar);        /*mth_last_date*/
+    v2 = substring(v1,1,4) - 1 ;
+    v3 = substring(v1,5,2);
+    v4 = substring(v1,7,2);
+    v5 = concat( v2,v3 );
+    pymth_last_date = concat(v5,v4);   /* current date */
+
+   zone =   concat( p_zone, '%' );
+
+*--- Current Year sale - As on Date
+   curry_tot_sale =  SELECT a.mandt , a.atwrt as line, b.vbeln,
+
+                      CASE when marm_to.umren   = 0 or marm_to.umren   is null then 0.000
+                        when marm_from.umren = 0 or marm_from.umren is NULL then 0.000
+                        when marm_to.umren is NOT NULL and marm_from.umren is NOT NULL then
+                          CASE WHEN C.vbtyp <> 'N' and C.vbtyp <> 'O' THEN
+                            cast(sum ( (b.fkimg * ( ( marm_from.umrez / marm_from.umren )  / ( marm_to.umrez / marm_to.umren) ) ) ) as float (16,16))
+                            WHEN C.vbtyp = 'N'  then  /* or C.vbtyp = 'O' THEN */
+                            cast(sum ( (b.fkimg * ( ( marm_from.umrez / marm_from.umren )  / ( marm_to.umrez / marm_to.umren) ) ) ) * - 1 as float (16,16))
+                            when C.vbtyp = 'O' and C.fkart = 'ZRTD' then
+                            cast(sum ( (b.fkimg * ( ( marm_from.umrez / marm_from.umren )  / ( marm_to.umrez / marm_to.umren) ) ) ) * - 1 as float (16,16))
+                            when C.vbtyp = 'S' and C.fkart = 'S2' and c.fktyp = 'L' then
+                            cast(sum ( (b.fkimg * ( ( marm_from.umrez / marm_from.umren )  / ( marm_to.umrez / marm_to.umren) ) ) ) as float (16,16))
+                            else 0
+                          END
+                        end as curry_sale ,
+
+                       0.000 as prey_sale
+
+                    from ausp as a inner join vbrp as b ON a.mandt = b.mandt and a.objek = b.matnr and a.atinn = '0000000002'
+                     and a.mandt = session_context( 'CLIENT' )
+*                   from t179 as a inner join vbrp as b ON a.mandt = b.mandt and a.prodh = b.prodh
+                    inner join vbrk as c on c.mandt = b.mandt and b.vbeln = c.vbeln
+                    left outer join marm as marm_from on marm_from.mandt = session_context( 'CLIENT' ) and /*session_context( 'CLIENT' )  */
+                    marm_from.matnr = b.matnr and marm_from.meinh = b.vrkme
+                    left outer join marm as marm_to   on marm_to.mandt   = session_context( 'CLIENT' ) and  /* session_context( 'CLIENT' ) */
+                    marm_to.matnr   = b.matnr and   marm_to.meinh   = 'MT'
+                    and  b.vkbur like zone and a.mandt = session_context( 'CLIENT' ) and c.mandt = :clnt
+                    where   b.vkbur like zone                                /* a.stufe = '7' and a.prodh like '11%' and */
+                    and c.vbtyp <> 'P'
+                    and (c.fkart <> 'ZCEX' AND  c.fkart <> 'ZGST' AND C.fkart <> 'YSTO')
+                    and c.vkorg in ( 1000 , 1001)
+                    and c.fkdat between cy_first_date and p_date
+                    and c.vtweg <> '15'
+*                    and c.vbeln not in ( select vbeln from vbrk where sfakn in ( select vbeln from vbrk where vkorg in ( 1000 , 1001) and
+*                        ( fkart = 'ZGST' or fkart = 'YSTO' ) and ( C.fkdat between cy_first_date and p_date)  )  )
+                    group by a.mandt, a.atwrt,b.vbeln, C.vbtyp,c.fkart,c.fktyp, marm_from.umren, marm_to.umren;
+*                   group by a.mandt, substring(a.prodh,1,4) ,b.matnr,C.vbtyp, marm_from.umren, marm_to.umren;
+
+
+*--- Previous Year Sale - As on previous year date
+     prey_tot_sale =  SELECT a.mandt , a.atwrt as line, b.vbeln,
+                      0.00 as curry_sale ,
+
+                      CASE when marm_to.umren   = 0 or marm_to.umren   is null then 0.000
+                        when marm_from.umren = 0 or marm_from.umren is NULL then 0.000
+                        when marm_to.umren is NOT NULL and marm_from.umren is NOT NULL then
+                            CASE WHEN C.vbtyp <> 'N' and C.vbtyp <> 'O' THEN
+                               cast(sum ( (b.fkimg * ( ( marm_from.umrez / marm_from.umren )  / ( marm_to.umrez / marm_to.umren) ) ) ) as float (16,16) )
+                              WHEN C.vbtyp = 'N'  then  /* or C.vbtyp = 'O' THEN */
+                               cast(sum ( (b.fkimg * ( ( marm_from.umrez / marm_from.umren )  / ( marm_to.umrez / marm_to.umren) ) ) ) * - 1 as float (16,16))
+                              when C.vbtyp = 'O' and C.fkart = 'ZRTD' then
+                               cast(sum ( (b.fkimg * ( ( marm_from.umrez / marm_from.umren )  / ( marm_to.umrez / marm_to.umren) ) ) ) * - 1 as float (16,16))
+                            when C.vbtyp = 'S' and C.fkart = 'S2' and c.fktyp = 'L' then
+                            cast(sum ( (b.fkimg * ( ( marm_from.umrez / marm_from.umren )  / ( marm_to.umrez / marm_to.umren) ) ) )  as float (16,16))
+                              else 0
+                            END
+                       END AS prey_sale
+
+                   from ausp as a inner join vbrp as b ON a.mandt = b.mandt and a.objek = b.matnr and a.atinn = '0000000002'
+*                   from t179 as a inner join vbrp as b ON a.mandt = b.mandt and a.prodh = b.prodh
+                   inner join vbrk as c on a.mandt = b.mandt and b.vbeln = c.vbeln
+                   left outer join marm as marm_from on marm_from.mandt = session_context( 'CLIENT' ) and  /*  */
+                   marm_from.matnr = b.matnr and marm_from.meinh = b.vrkme
+                   left outer join marm as marm_to   on marm_to.mandt   = session_context( 'CLIENT' ) and /*  */
+                   marm_to.matnr   = marm_from.matnr and   marm_to.meinh   = 'MT'
+                   and  b.vkbur like zone and a.mandt = session_context( 'CLIENT' )
+                       where   b.vkbur like zone                /* a.stufe = '7' and a.prodh like '11%' and */
+                   and  c.vbtyp <> 'P'
+                   and (c.fkart <> 'ZCEX' AND  c.fkart <> 'ZGST' AND C.fkart <> 'YSTO')
+                   and c.vkorg in (1000 , 1001)
+                   and c.fkdat between py_first_date and pymth_last_date
+                   and c.vtweg <> '15'
+*                   and c.vbeln not in ( select vbeln from vbrk where sfakn in ( select vbeln from vbrk where vkorg in ( 1000 , 1001)
+*                   and ( fkart = 'ZGST' or fkart = 'YSTO' ) and ( c.fkdat between py_first_date and pymth_last_date)  )  )
+                   group by a.mandt, a.atwrt,b.vbeln, C.vbtyp,c.fkart,c.fktyp, marm_from.umren, marm_to.umren;
+*                   group by a.mandt, substring(a.prodh,1,4) ,b.matnr,C.vbtyp, marm_from.umren, marm_to.umren;
+
+
+ line_total_sale =  select a.mandt,
+                           a.line ,
+                           a.curry_sale,
+                           a.prey_sale
+                      from :curry_tot_sale as a
+
+                      UNION all
+
+                    select b.mandt,
+                           b.line,
+                           b.curry_sale,
+                           b.prey_sale
+                      from :prey_tot_sale as b;
+
+ final_sale =   select a.mandt,
+                       a.line,
+                       CAST ( sum( a.curry_sale) as float(16,16) ) as curry_sale,
+                       CAST (sum(a.prey_sale) as FLOAT (16,16) ) as prey_sale
+                 from :line_total_sale as a
+                 group by a.mandt , a.line;
+
+
+**-- Target for current year
+ t_target = select a.atwrt,
+                   a.begda,
+                   a.endda,
+                   cast(sum(a.fkimg) as FLOAT (16,16) ) as fkimg
+                   from zo2c_target_val as a
+                   left outer join :final_sale as b on a.atwrt = b.line
+                   where zon = p_zone and  a.begda BETWEEN cy_first_date and mth_first_date and a.endda <=  mth_last_date
+                   and a.mandt = SESSION_CONTEXT ( 'CLIENT' )
+                   group by a.atwrt, a.begda , a.endda ;
+
+* t_target = select a.prod_brand , a.begda , a.endda , cast(sum(a.fkimg) as DEC (18,3) ) as fkimg  from zo2c_target_val as a
+*               left outer join :final_sale as b on a.prod_brand = b.prod_h
+*               where zon = p_zone and  a.begda BETWEEN cy_first_date and mth_first_date and a.endda <=  mth_last_date
+*               group by a.prod_brand, a.begda , a.endda ;
+
+
+seg_target = select atwrt , fkimg ,
+                  case when a.begda >= cy_first_date and a.endda <= mth_last_date THEN
+                        a.fkimg else
+                        0 end as curry_trgt,
+                       case when a.begda >= mth_first_date and a.endda <= mth_last_date THEN
+                        a.fkimg  else
+                        0 end as curry_mth_trgt,
+                       case when a.begda >= py_first_date and a.endda <= pymth_last_date THEN
+                        a.fkimg else
+                        0 end as  prey_trgt,
+                        case when a.begda >= pymth_first_date and a.endda <= pymth_last_date THEN
+                        a.fkimg else
+                        0 end as  prey_mth_trgt
+                        from :t_target as a  ;
+
+ tot_trgt = select atwrt,
+                   sum(curry_trgt) as curry_trgt
+                   from :seg_target GROUP BY atwrt;
+
+*  total_sale = select a.
+
+ it_final =   SELECT DISTINCT a.mandt,
+                              a.line,
+                              a.prey_sale,
+                              a.curry_sale,
+                              b.curry_trgt
+                 from :tot_trgt as b
+                 left OUTER join :final_sale as a on a.line = b.atwrt;
+
+* it_final =   SELECT DISTINCT a.mandt , a.line , a.prey_sale , a.curry_sale  , b.curry_trgt
+*                 from :final_sale as  a
+*                 left OUTER join :tot_trgt as b on  a.line = b.atwrt;
+
+   total   =  select mandt,
+                     CAST (sum(prey_sale) as FLOAT (16,16)) as tot_prey_sale,
+                     CAST (sum(curry_sale) as FLOAT (16,16)) as tot_curry_sale ,
+                     CAST (sum(curry_trgt) as FLOAT (16,16)) as tot_curry_trgt
+               from :it_final group by mandt;
+
+   RETURN SELECT DISTINCT a.mandt , a.line , a.prey_sale , a.curry_sale  ,
+                 CASE WHEN a.prey_sale > 0 THEN
+                 (a.curry_sale - a.prey_sale) * 100 / a.prey_sale ELSE
+                 0
+                 END as gew_pr ,
+                 a.curry_trgt,
+
+                 CASE WHEN a.curry_trgt > 0 THEN
+                 ( a.curry_sale * 100 ) / a.curry_trgt ELSE
+                  0  END as ach_pr ,
+
+                 CASE WHEN a.curry_sale > 0 THEN
+                 (b.tot_curry_sale / a.curry_sale ) * 100 ELSE
+                 0 END as contr,
+
+
+                 a.prey_sale / cast(fiscal_preiod as int) as prey_avg,
+                 a.curry_sale / cast(fiscal_preiod as int ) as curry_avg,
+                 a.curry_trgt/  cast(fiscal_preiod as int ) as trgt_avg
+                 from :it_final as a inner join :total as b on a.mandt = b.mandt;
+
+*    return select distinct a.mandt , a.prodh from t179 as a where a.stufe = '7';
+
+
+  ENDMETHOD.

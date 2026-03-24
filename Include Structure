@@ -3,3 +3,13 @@
           DATA:   txt_ref LIKE eqkt-kzltx.
   DATA:   property TYPE c.                    "No Changes to Existing Long Text
   DATA: END OF ltxhead.
+
+
+
+Including all the types structure into one structure 
+
+
+TYPES: BEGIN OF ts_all_pritem .
+         INCLUDE TYPE vbak.
+TYPES :  matnr TYPE matnr.
+TYPES: END OF ts_all_pritem.
